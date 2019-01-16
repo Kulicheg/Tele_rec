@@ -16,9 +16,10 @@ byte command;
 AT24C256 drive(0x50);
 
 void setup() {
-
-  if (Serial.available()) Serial.begin(9600);
-  if (Serial1.available()) Serial1.begin(9600);
+  delay(2000);
+  Serial.begin(9600);
+  Serial1.begin(9600);
+  Serial.println("Starting");
 
 }
 
@@ -58,20 +59,26 @@ byte headerdetector()
 
   while (flag < 4)
   {
-    currentByte = Serial1.read();
+    if (Serial1.available())
 
-    if (currentByte == header [flag]) flag++; else flag = 0;
+
+
+
+    { currentByte = Serial1.read();
+
+       if (currentByte == header [flag]) flag++; else flag = 0;
+    }
   }
 
-  command = Serial1.read();
+  delay (5);
+  if (Serial1.available()) command = Serial1.read();
 
   if (command > 8)
   {
     Serial.print ("Invalid command: ");
     Serial.println (command);
-    command = 255;
+     command = 255;
   }
 
   return command;
 }
-
