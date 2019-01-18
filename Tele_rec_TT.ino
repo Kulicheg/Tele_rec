@@ -9,6 +9,8 @@
 int Cycles = 500;
 int PackSize = 22;
 int NumRec = 12;
+byte JournalSize = 29;
+
 byte currentByte;
 byte header [4] = {170, 171, 186, 187};
 byte command;
@@ -37,14 +39,40 @@ void loop()
   Serial.write (highByte(Cycles));
   Serial.write (lowByte(Cycles));
 
+  Serial.flush();
 
-  for (int q = 0; q < 128; q++)
+delay (500);
+
+  sendheader(02);
+  
+
+  for ( int q = 0; q < Cycles * PackSize; q++)
+  {
+    byte Sendbyte = driveD.read (q);
+    Serial.write (Sendbyte);
+  }
+  
+  Serial.flush();
+
+
+
+for ( int q = 0; q < NumRec * JournalSize; q++)
   {
     byte Sendbyte = EEPROM.read (q);
     Serial.write (Sendbyte);
-    // Serial.print (Sendbyte, HEX);
-    //Serial.print (" ");
   }
+  Serial.flush();
+
+
+
+
+
+for ( int q = 945; q < 1024 ; q++)
+  {
+    byte Sendbyte = EEPROM.read (q);
+    Serial.write (Sendbyte);
+  }
+  
 
   Serial.flush();
 
@@ -89,6 +117,7 @@ void sendheader(byte command)
   }
   Serial.write (command);
 }
+
 
 
 

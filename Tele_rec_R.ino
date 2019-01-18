@@ -49,12 +49,12 @@ void setup() {
 
 
 
-  //  result = formatdriveD();
-  //  if (result)
-  //  {
-  //    Serial.println ("Formated drive D");
-  //  }
-  //  else Serial.println ("Not formated drive D");
+//    result = formatdriveD();
+//    if (result)
+//    {
+//      Serial.println ("Formated drive D");
+//    }
+//    else Serial.println ("Not formated drive D");
 
 
   result = getdriveDinfo();
@@ -69,16 +69,16 @@ void setup() {
 void loop()
 {
 
-  do
-  {
+  
     command = headerdetector();
-  }
-  while (command == 255);
+  Serial.print("command ");
+ Serial.println(command);
 
   switch (command)
 
   {
     case 01:
+      Serial.print("01:");
       // delay (5);
       numBytes = 0;
 
@@ -92,7 +92,7 @@ void loop()
       JournalBlock = NumRec * JournalSize;
 
 
-      Serial.print("01:");
+      
       Serial.print(Cycles);
       Serial.print("/");
       Serial.println(NumRec);
@@ -142,11 +142,12 @@ void loop()
       Serial.println  (blockend);
 
       inProgress = true;
-
+Serial.println  ("Finish 01...");
       break;
 
     case 02:
-      Serial.println("02:");
+    Serial.println("");
+      Serial.println("!!!02:");
 
 
       if (!inProgress)
@@ -154,6 +155,7 @@ void loop()
         Serial.println  ("Open transaction first...");
         break;
       }
+Serial.println  ("Get Cycles...");
 
       for ( int q = 0; q < Cycles * PackSize; q++)
       {
@@ -162,6 +164,7 @@ void loop()
         driveD.write(ATPos++, readbyte);
       }
 
+Serial.println  ("Get Journal...");
 
 for ( int q = 0; q < NumRec * JournalSize; q++)
       {
@@ -171,6 +174,7 @@ for ( int q = 0; q < NumRec * JournalSize; q++)
       }
 
 
+Serial.println  ("Get Service...");
 
 for ( int q = 0; q < ServiceSize; q++)
       {
@@ -182,6 +186,7 @@ for ( int q = 0; q < ServiceSize; q++)
 
       driveD.write (3, ++filesD);
       inProgress = 0;
+      Serial.println  ("Finish transaction...");
       break;
 
   
@@ -259,6 +264,7 @@ bool getdriveDinfo()
   for (int q = 0; q < 3; q++)
   {
     readbyte = driveD.read(q);
+Serial.println (readbyte);
 
     if (readbyte != drvlabel[q]) return false;
   }
