@@ -7,7 +7,7 @@
 
 /////////////////////////////////////////////////////////////////////////////
 //Оглавление хранит в первом байте сколько всего записей сразу после метки DrV. Далее с четвертого байта  по 4 байта вычисленные старт-финиш позиции в хранилище, например 00128 - 1445, 1446 - 2487
-//Сама запись начинается с четырех байт оглавления Номер записи, Cycles записи и RecNum записи. Всего разрешим хранить 31 запись + первая служебная  и вы делим соответственно 128 байт.
+//Сама запись начинается с четырех байт оглавления Номер записи, Cycles записи и RecNum записи. Всего разрешим хранить 31 запись + первая служебная  и  делим соответственно 128 байт.
 //Далее идут 3 массива данных  из AT берем все байты с 0000  по Cycles * PackSize, из EEPROM передаем NumRec * 29(LogSize), а далее берем массив служебных данных на всякий из EEPROM 0945 - 1024
 //
 //
@@ -34,7 +34,7 @@ int TelemetryBlock;
 int JournalBlock;
 byte filesD;
 int nextblock;
-
+int ATPos;
 
 
 FM24C256 driveD(0x50);
@@ -63,7 +63,7 @@ void setup() {
     Serial.println ("Good drive D");
   }
   else Serial.println ("BAD drive D");
-  delay(50000);
+
 }
 
 void loop()
@@ -97,8 +97,36 @@ void loop()
       Serial.print("/");
       Serial.println(NumRec);
 
+      result = getdriveDinfo();
+      if (result)
+      {
+        Serial.println ("Good drive D");
+      }
+      else Serial.println ("BAD drive D");
 
 
+      driveD.write (3, filesD++);
+
+int blocklenght =111;
+
+      
+      driveD.write (nextblock++, ATPos++);
+      driveD.write (nextblock++, ATPos++);
+      
+      
+      
+      driveD.write (ATPos, filesD++);
+      driveD.write (ATPos + 1, CyclesH);
+      driveD.write (ATPos + 2, CyclesL);
+      driveD.write (ATPos + 3, NumRec);
+      
+      
+
+
+
+
+
+      
       while (numBytes < 128)
       {
         if (Serial1.available())
@@ -175,19 +203,19 @@ bool getdriveDinfo()
 
   filesD = driveD.read(3);
   nextblock = filesD * 4 + 4;
+  ATPos = 128;
 
-  for (int q = 0; q < (filesD*4); q=q+4)
-  
-
+  if (filesD > 0)
   {
-    byte readbyteH = driveD.read(5);
-    byte readbyteL = driveD.read(6);
+    for (int q = 0; q < (filesD * 4); q = q + 4)
+    {
+      Serial.println(q);
+
+      byte readbyteH = driveD.read(5);
+      byte readbyteL = driveD.read(6);
+    }
+
   }
-
-
-
-
-
   //  Wire.write((int)(eeaddress >> 8));
   //  Wire.write((int)(eeaddress & 0xFF))
 
@@ -228,6 +256,3 @@ bool formatdriveD()
   }
 
 }
-
-
-
