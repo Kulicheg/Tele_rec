@@ -6,8 +6,8 @@
 // BB - 187
 
 /////////////////////////////////////////////////////////////////////////////
-//Оглавление хранит в первом байте сколько всего записей сразу после метки DrV. Далее с четвертого байта  по 4 байта вычисленные старт-финиш позиции в хранилище, например 00128 - 1445, 1446 - 2487
-//Сама запись начинается с четырех байт оглавления Номер записи, Cycles записи и RecNum записи. Всего разрешим хранить 31 запись + первая служебная  и  делим соответственно 128 байт.
+//Оглавление хранит в  четвертом байте сколько всего записей сразу после метки DrV. Пятый байт в резерве.  Далее с пятого байта  по 5 байт, 1 байт номер записи, дале 2 по 2  вычисленные старт-финиш позиции в хранилище, например 00128 - 1445, 1446 - 2487
+//Сама запись начинается с четырех байт оглавления Номер записи, Cycles записи и RecNum записи. Всего разрешим хранить 31 запись + первая служебная  и  делим соответственно 160 байт оглавления.
 //Далее идут 3 массива данных  из AT берем все байты с 0000  по Cycles * PackSize, из EEPROM передаем NumRec * 29(LogSize), а далее берем массив служебных данных на всякий из EEPROM 0945 - 1024
 //
 //
@@ -30,13 +30,14 @@ byte NumRec;
 byte blocksize = 128;
 byte PackSize = 22;
 byte JournalSize = 29;
+byte ServiceSize = 78;
 int TelemetryBlock;
 int JournalBlock;
 byte filesD;
 int nextblock;
 int ATPos;
-
-
+bool result;
+bool inProgress;
 FM24C256 driveD(0x50);
 
 void setup() {
@@ -46,7 +47,6 @@ void setup() {
   Serial1.begin(9600);
   Serial.println("Starting");
 
-  bool result;
 
 
   //  result = formatdriveD();
@@ -104,29 +104,93 @@ void loop()
       }
       else Serial.println ("BAD drive D");
 
+      ////////////////////////////////// Records Counter //////////////////////////////////
+      //driveD.write (3, ++filesD);
+      ////////////////////////////////////////////////////////////////////////////////////
 
-      driveD.write (3, filesD++);
 
-int blocklenght =111;
-
-      
-      driveD.write (nextblock++, ATPos++);
-      driveD.write (nextblock++, ATPos++);
-      
-      
-      
-      driveD.write (ATPos, filesD++);
-      driveD.write (ATPos + 1, CyclesH);
-      driveD.write (ATPos + 2, CyclesL);
-      driveD.write (ATPos + 3, NumRec);
-      
-      
+      int blocklenght = (Cycles * PackSize) + (NumRec * JournalSize) + ServiceSize;
+      int blockend = ATPos + blocklenght;
 
 
 
+      ////////////////////////////////// Directory //////////////////////////////////
+      driveD.write (nextblock++, filesD + 1);
+
+      driveD.write(nextblock++, (int)(ATPos >> 8));
+      driveD.write(nextblock++, (int)(ATPos & 0xFF));
+
+      driveD.write(nextblock++, (int)(blockend >> 8));
+      driveD.write(nextblock++, (int)(blockend & 0xFF));
+      //////////////////////////////////////////////////////////////////////////////
 
 
-      
+
+      driveD.write (ATPos++, filesD + 1);
+
+      driveD.write(ATPos++, (int)(Cycles >> 8));
+      driveD.write(ATPos++, (int)(Cycles & 0xFF));
+
+      driveD.write(ATPos++, NumRec);
+
+      Serial.println  ("");
+      Serial.print    ("FileName:");
+      Serial.println  (filesD + 1);
+      Serial.print    ("EEPROM Start pos:");
+      Serial.println  (ATPos);
+      Serial.print    ("EEPROM finish pos:");
+      Serial.println  (blockend);
+
+      inProgress = true;
+
+      break;
+
+    case 02:
+      Serial.println("02:");
+
+
+      if (!inProgress)
+      {
+        Serial.println  ("Open transaction first...");
+        break;
+      }
+
+      for ( int q = 0; q < Cycles * PackSize; q++)
+      {
+        byte readbyte = Serial1.read();
+
+        driveD.write(ATPos++, readbyte);
+      }
+
+
+for ( int q = 0; q < NumRec * JournalSize; q++)
+      {
+        byte readbyte = Serial1.read();
+
+        driveD.write(ATPos++, readbyte);
+      }
+
+
+
+for ( int q = 0; q < ServiceSize; q++)
+      {
+        byte readbyte = Serial1.read();
+
+        driveD.write(ATPos++, readbyte);
+      }
+
+
+      driveD.write (3, ++filesD);
+      inProgress = 0;
+      break;
+
+  
+    
+    case 03:
+      Serial.println("03:");
+
+
+
       while (numBytes < 128)
       {
         if (Serial1.available())
@@ -143,9 +207,9 @@ int blocklenght =111;
       Serial.println ("");
       break;
 
-    case 02:
-      Serial.println("02:");
-      break;
+
+
+
   }
 
 
@@ -202,12 +266,12 @@ bool getdriveDinfo()
 
 
   filesD = driveD.read(3);
-  nextblock = filesD * 4 + 4;
+  nextblock = filesD * 5 + 5;
   ATPos = 128;
 
   if (filesD > 0)
   {
-    for (int q = 0; q < (filesD * 4); q = q + 4)
+    for (int q = 0; q < (filesD * 5); q = q + 5)
     {
       Serial.println(q);
 
@@ -256,3 +320,4 @@ bool formatdriveD()
   }
 
 }
+
