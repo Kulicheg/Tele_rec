@@ -5,8 +5,9 @@
 
 #include <EEPROM.h>
 #include <AT24C256.h>
+#include <Wire.h>
 
-int Cycles = 500;
+int Cycles = 400;
 int PackSize = 22;
 int NumRec = 12;
 byte JournalSize = 29;
@@ -24,7 +25,7 @@ void setup()
 {
 
   Serial.begin(9600);
-
+  Wire.begin();
 
 }
 
@@ -41,41 +42,46 @@ void loop()
 
   Serial.flush();
 
-delay (500);
+  delay (500);
 
   sendheader(02);
-  
 
+  tone (3, 1000, 50);
+ 
   for ( int q = 0; q < Cycles * PackSize; q++)
   {
     byte Sendbyte = driveD.read (q);
     Serial.write (Sendbyte);
+
+
   }
-  
+
+
   Serial.flush();
+  tone (3, 1000, 50);
+
+
+  for ( int q = 0; q < NumRec * JournalSize; q++)
+  {
+    byte Sendbyte = EEPROM.read (q);
+    Serial.write (Sendbyte);
+
+  }
+  Serial.flush();
+  tone (3, 1000, 50);
 
 
 
-for ( int q = 0; q < NumRec * JournalSize; q++)
+  for ( int q = 945; q < 1024 ; q++)
   {
     byte Sendbyte = EEPROM.read (q);
     Serial.write (Sendbyte);
   }
-  Serial.flush();
 
-
-
-
-
-for ( int q = 945; q < 1024 ; q++)
-  {
-    byte Sendbyte = EEPROM.read (q);
-    Serial.write (Sendbyte);
-  }
-  
 
   Serial.flush();
 
+  tone (3, 1000, 50);
   delay (10000);
 
 
@@ -117,7 +123,3 @@ void sendheader(byte command)
   }
   Serial.write (command);
 }
-
-
-
-

@@ -20,6 +20,72 @@
 #include <FM24C256.h>
 #include <Wire.h>
 
+
+
+
+
+
+int EEXPos;
+int Altitude;
+float Alt1, Alt2;
+long int Pressure;
+boolean writeit;
+boolean powerLost;
+
+int Apogee;
+int bx, by, bz;
+int bax, bay, baz;
+float cx1, cy1, cz1;
+double xyz[3];
+double ax, ay, az;
+int x, y, z;
+int Temperature;
+int Speed;
+int bufwrite;
+int msgCount;
+
+boolean Fallen;
+//byte NumRec;
+int xCal, yCal, zCal, axCal, ayCal, azCal;
+long int Start, Start2, Finish, Finish2, routineTime;
+long int FirstTime, SecondTime, oldAltitude, newAltitude, SecondTimeM, FirstTimeM;
+byte MOSFET_1, MOSFET_2, MOSFET_3;
+boolean MOSFET_1_IS_FIRED, MOSFET_2_IS_FIRED, MOSFET_3_IS_FIRED;
+int Maxspeed;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct telemetrystruct
+{
+  int bax, bay, baz;
+  int bx, by, bz;
+  long int Pressure;
+  int Temperature;
+  int Altitude;
+  int  Speed;
+};
+
+struct SystemLog
+{
+  unsigned long timestamp;
+  char message[25];
+};
+
+struct telemetrystruct telemetry;
+struct SystemLog capitansLog;
+
 int Cycles;
 byte currentByte;
 byte header [4] = {170, 171, 186, 187}; // AA AB BA BB
@@ -28,16 +94,22 @@ byte command;
 byte numBytes;
 byte NumRec;
 byte blocksize = 128;
-byte PackSize = 22;
-byte JournalSize = 29;
+byte PackSize = sizeof (telemetry);
+byte JournalSize = sizeof (capitansLog);
 byte ServiceSize = 78;
 int TelemetryBlock;
 int JournalBlock;
 byte filesD;
 int nextblock;
-int ATPos;
+unsigned int ATPos;
 bool result;
 bool inProgress;
+unsigned int blockend;
+int blocklenght;
+int CyclesL;
+int CyclesH;
+unsigned int w;
+
 FM24C256 driveD(0x50);
 
 void setup() {
@@ -47,14 +119,15 @@ void setup() {
   Serial1.begin(9600);
   Serial.println("Starting");
 
+  Serial.println(sizeof (ATPos));
 
 
-//    result = formatdriveD();
-//    if (result)
-//    {
-//      Serial.println ("Formated drive D");
-//    }
-//    else Serial.println ("Not formated drive D");
+  result = formatdriveD();
+  if (result)
+  {
+    Serial.println ("Formated drive D");
+  }
+  else Serial.println ("Not formated drive D");
 
 
   result = getdriveDinfo();
@@ -64,15 +137,18 @@ void setup() {
   }
   else Serial.println ("BAD drive D");
 
+  driveD.write(3, 3);
+  fromLog ();
+  Serial.println ("Break");
+  while (1);
+
 }
 
 void loop()
 {
 
-  
-    command = headerdetector();
-  Serial.print("command ");
- Serial.println(command);
+
+  command = headerdetector();
 
   switch (command)
 
@@ -84,15 +160,15 @@ void loop()
 
       NumRec = Serial1.read();
 
-      byte CyclesH = Serial1.read();
-      byte CyclesL = Serial1.read();
+      CyclesH = Serial1.read();
+      CyclesL = Serial1.read();
       Cycles = word(CyclesH, CyclesL);
 
       TelemetryBlock = Cycles * PackSize;
       JournalBlock = NumRec * JournalSize;
 
 
-      
+
       Serial.print(Cycles);
       Serial.print("/");
       Serial.println(NumRec);
@@ -109,10 +185,25 @@ void loop()
       ////////////////////////////////////////////////////////////////////////////////////
 
 
-      int blocklenght = (Cycles * PackSize) + (NumRec * JournalSize) + ServiceSize;
-      int blockend = ATPos + blocklenght;
+      blocklenght = (Cycles * PackSize) + (NumRec * JournalSize) + ServiceSize + 4;
+      blockend = ATPos + blocklenght;
 
 
+      Serial.println  ("");
+      Serial.print    ("FileName:");
+      Serial.println  (filesD + 1);
+      Serial.print    ("EEPROM Start pos:");
+      Serial.println  (ATPos);
+      Serial.print    ("EEPROM finish pos:");
+      Serial.println  (blockend);
+
+
+
+      if (blockend > 32767)
+      {
+        Serial.println    ("NOT ENOUGHT SPACE FOR NEXT PACKET");
+        while (1);
+      }
 
       ////////////////////////////////// Directory //////////////////////////////////
       driveD.write (nextblock++, filesD + 1);
@@ -133,21 +224,14 @@ void loop()
 
       driveD.write(ATPos++, NumRec);
 
-      Serial.println  ("");
-      Serial.print    ("FileName:");
-      Serial.println  (filesD + 1);
-      Serial.print    ("EEPROM Start pos:");
-      Serial.println  (ATPos);
-      Serial.print    ("EEPROM finish pos:");
-      Serial.println  (blockend);
+
 
       inProgress = true;
-Serial.println  ("Finish 01...");
       break;
 
     case 02:
-    Serial.println("");
-      Serial.println("!!!02:");
+      Serial.println("");
+      Serial.println("02:");
 
 
       if (!inProgress)
@@ -155,42 +239,56 @@ Serial.println  ("Finish 01...");
         Serial.println  ("Open transaction first...");
         break;
       }
-Serial.println  ("Get Cycles...");
+      Serial.print  ("Get Cycles...");
+      Serial.println  (ATPos);
 
-      for ( int q = 0; q < Cycles * PackSize; q++)
+      w = 0;
+      while (w < Cycles * PackSize)
       {
-        byte readbyte = Serial1.read();
-
-        driveD.write(ATPos++, readbyte);
+        if (Serial1.available())
+        {
+          byte readbyte = Serial1.read();
+          driveD.write(ATPos++, readbyte);
+          w++;
+        }
       }
 
-Serial.println  ("Get Journal...");
+      Serial.print  ("Get Journal... ");
+      Serial.println  (ATPos);
 
-for ( int q = 0; q < NumRec * JournalSize; q++)
+      w = 0;
+      while (w < JournalBlock)
       {
-        byte readbyte = Serial1.read();
-
-        driveD.write(ATPos++, readbyte);
+        if (Serial1.available())
+        {
+          byte readbyte = Serial1.read();
+          driveD.write(ATPos++, readbyte);
+          w++;
+        }
       }
 
+      Serial.print  ("Get Service...");
+      Serial.println  (ATPos);
 
-Serial.println  ("Get Service...");
-
-for ( int q = 0; q < ServiceSize; q++)
+      w = 0;
+      while (w < ServiceSize)
       {
-        byte readbyte = Serial1.read();
-
-        driveD.write(ATPos++, readbyte);
+        if (Serial1.available())
+        {
+          byte readbyte = Serial1.read();
+          driveD.write(ATPos++, readbyte);
+          w++;
+        }
       }
 
-
-      driveD.write (3, ++filesD);
+      driveD.write (3, filesD + 1);
       inProgress = 0;
-      Serial.println  ("Finish transaction...");
+      Serial.print  ("Finish transaction...");
+      Serial.println  (ATPos);
       break;
 
-  
-    
+
+
     case 03:
       Serial.println("03:");
 
@@ -264,7 +362,7 @@ bool getdriveDinfo()
   for (int q = 0; q < 3; q++)
   {
     readbyte = driveD.read(q);
-Serial.println (readbyte);
+
 
     if (readbyte != drvlabel[q]) return false;
   }
@@ -272,41 +370,37 @@ Serial.println (readbyte);
 
 
   filesD = driveD.read(3);
+
   nextblock = filesD * 5 + 5;
-  ATPos = 128;
+  ATPos = 160;
 
   if (filesD > 0)
   {
-    for (int q = 0; q < (filesD * 5); q = q + 5)
-    {
-      Serial.println(q);
 
-      byte readbyteH = driveD.read(5);
-      byte readbyteL = driveD.read(6);
-    }
+    byte readbyteH = driveD.read(nextblock - 2);
+    byte readbyteL = driveD.read(nextblock - 1);
 
+
+    ATPos = word (readbyteH, readbyteL) + 1;
   }
-  //  Wire.write((int)(eeaddress >> 8));
-  //  Wire.write((int)(eeaddress & 0xFF))
-
   return true;
-
 }
 
 bool formatdriveD()
 {
   ///////////////////////////Clear//////////////////////////////////
 
-  for (long int q = 0; q < 32768; q++)
-  {
-    driveD.write (q, 00);
-    float disp = q % 1000;
-    if ( disp == 0) {
-      Serial.println (q);
-    }
-  }
-
-  Serial.println ( "FINISH... ");
+  //  for (long int q = 0; q < 32768; q++)
+  //  {
+  //    driveD.write (q, 00);
+  //    float disp = q % 1000;
+  //    if ( disp == 0) {
+  //      Serial.println (q);
+  //    }
+  //  }
+  //
+  //  Serial.println ( "FINISH... ");
+  driveD.write(3, 0);
 
   ///////////////////////////Labeling////////////////////////////////
 
@@ -321,9 +415,144 @@ bool formatdriveD()
   {
     byte readbyte = driveD.read(q);
     if (readbyte != drvlabel[q]) return false;
-
-    return true;
   }
-
+  return true;
 }
 
+
+void fromLog ()
+{
+  byte Packet[JournalSize];
+
+  byte NumRec2 = driveD.read(3);
+
+  unsigned int startblock;
+  for (int q = 0; q < NumRec2; q++)
+  {
+
+
+    nextblock = q * 5 + 5;
+
+    byte readbyteH = driveD.read(nextblock - 2);
+    byte readbyteL = driveD.read(nextblock - 1);
+
+    ATPos = word (readbyteH, readbyteL) - 426;
+
+    readbyteH = driveD.read(nextblock - 4);
+    readbyteL = driveD.read(nextblock - 3);
+
+    startblock  = word (readbyteH, readbyteL);
+
+    byte  NR = driveD.read(startblock);
+
+
+    Serial.println("-----------------------------------------------");
+
+    for (int msgCount = 0; msgCount < (JournalSize * NR);  msgCount = msgCount + JournalSize)
+    {
+
+
+      for (int intern = 0; intern < JournalSize; intern++)
+      {
+        Packet[intern] = driveD.read(ATPos + intern);
+        
+      }
+
+      memcpy(&capitansLog, Packet, sizeof(capitansLog));
+      String str(capitansLog.message);
+      Serial.print(capitansLog.timestamp);
+      Serial.print(":");
+      Serial.println(str);
+      Serial.println("-----------------------------------------------");
+    }
+
+  }
+}
+
+
+
+
+
+void getInfo2()
+{
+  int  EEXPos = 164;
+  //  EEPROM.get (930, Apogee);
+  //  Serial.print ("Apogee = ");
+  //  Serial.println (Apogee);
+  //
+  //  EEPROM.get (950, Maxspeed);
+  //  Serial.print ("Max Speed = ");
+  //  Serial.println (Maxspeed);
+
+  PackSize = sizeof (telemetry);
+  byte Packet[PackSize];
+
+
+
+
+
+  Serial.println ("Alt\t Spd\t Prs\t Tmp\t bx\t by\t bz\t gX\t gY\t gZ");
+  Serial.println (" ");
+
+
+  for (int Rec = 0; Rec < Cycles; Rec++)
+  {
+    for (int intern = 0; intern < PackSize; intern++)
+    {
+      Packet[intern] = driveD.read(EEXPos + intern);
+    }
+
+    memcpy(&telemetry, Packet, sizeof(telemetry));
+
+
+    bx            =  telemetry.bx;
+    by            =  telemetry.by;
+    bz            =  telemetry.bz;
+
+    float DT_bx = bx;
+    float DT_by = by;
+    float DT_bz = bz;
+
+    DT_bx = DT_bx / 10;
+    DT_by = DT_by / 10;
+    DT_bz = DT_bz / 10;
+
+
+    bax           = telemetry.bax;
+    bay           = telemetry.bay;
+    baz           = telemetry.baz;
+
+
+    Pressure      = telemetry.Pressure;
+    Temperature   = telemetry.Temperature;
+    Altitude      = telemetry.Altitude;
+    Speed         = telemetry.Speed;
+    float Speed2  =  Speed;
+
+
+
+    Serial.print (Altitude);
+    Serial.print("\t");
+    Serial.print (Speed2);
+    Serial.print("\t");
+    Serial.print (Pressure);
+    Serial.print("\t");
+    Serial.print (Temperature);
+    Serial.print("\t");
+    Serial.print (DT_bx, 2);
+    Serial.print("\t");
+    Serial.print (DT_by, 2);
+    Serial.print("\t");
+    Serial.print (DT_bz, 2);
+    Serial.print("\t");
+    Serial.print (round(bax));
+    Serial.print("\t");
+    Serial.print (round (bay));
+    Serial.print("\t");
+    Serial.println (round (baz));
+
+    EEXPos = EEXPos + PackSize;
+  }
+  Serial.println ("-----------------------------------------------------");
+
+}
