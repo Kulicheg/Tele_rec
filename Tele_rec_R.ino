@@ -138,7 +138,9 @@ void setup() {
   else Serial.println ("BAD drive D");
 
   driveD.write(3, 3);
-  fromLog ();
+  //fromLog ();
+  getInfo2();
+
   Serial.println ("Break");
   while (1);
 
@@ -427,25 +429,49 @@ void fromLog ()
   byte NumRec2 = driveD.read(3);
 
   unsigned int startblock;
+  unsigned int endblock;
   for (int q = 0; q < NumRec2; q++)
   {
 
 
-    nextblock = q * 5 + 5;
+    nextblock = q * 5 + 10;
 
     byte readbyteH = driveD.read(nextblock - 2);
     byte readbyteL = driveD.read(nextblock - 1);
 
-    ATPos = word (readbyteH, readbyteL) - 426;
+    endblock  = word (readbyteH, readbyteL);
 
     readbyteH = driveD.read(nextblock - 4);
     readbyteL = driveD.read(nextblock - 3);
 
+
     startblock  = word (readbyteH, readbyteL);
 
-    byte  NR = driveD.read(startblock);
+    readbyteH = driveD.read(startblock + 1);
+    readbyteL = driveD.read(startblock + 2);
+
+    Cycles  = word (readbyteH, readbyteL);
+
+    byte  NR = driveD.read(startblock + 3);
 
 
+    ATPos = startblock + (Cycles * PackSize) + 4;
+
+    Serial.println ("");
+    Serial.print ("FileName=");
+    Serial.println (NumRec2);
+    Serial.print ("Cycles=");
+    Serial.println (Cycles);
+    Serial.print ("NR=");
+    Serial.println (NR);
+    Serial.print ("ATPos=");
+    Serial.println (ATPos);
+    Serial.print ("startblock=");
+    Serial.println (startblock);
+    Serial.print ("endblock=");
+    Serial.println (endblock);
+
+    Serial.println("");
     Serial.println("-----------------------------------------------");
 
     for (int msgCount = 0; msgCount < (JournalSize * NR);  msgCount = msgCount + JournalSize)
@@ -454,8 +480,7 @@ void fromLog ()
 
       for (int intern = 0; intern < JournalSize; intern++)
       {
-        Packet[intern] = driveD.read(ATPos + intern);
-        
+        Packet[intern] = driveD.read(ATPos + intern + msgCount);
       }
 
       memcpy(&capitansLog, Packet, sizeof(capitansLog));
@@ -464,6 +489,9 @@ void fromLog ()
       Serial.print(":");
       Serial.println(str);
       Serial.println("-----------------------------------------------");
+
+
+
     }
 
   }
@@ -491,68 +519,210 @@ void getInfo2()
 
 
 
-  Serial.println ("Alt\t Spd\t Prs\t Tmp\t bx\t by\t bz\t gX\t gY\t gZ");
-  Serial.println (" ");
+  byte NumRec2 = driveD.read(3);
 
+  unsigned int startblock;
+  unsigned int endblock;
 
-  for (int Rec = 0; Rec < Cycles; Rec++)
+  for (int q = 0; q < NumRec2; q++)
   {
-    for (int intern = 0; intern < PackSize; intern++)
+
+
+    nextblock = q * 5 + 10;
+
+    byte readbyteH = driveD.read(nextblock - 2);
+    byte readbyteL = driveD.read(nextblock - 1);
+
+    endblock  = word (readbyteH, readbyteL);
+
+    readbyteH = driveD.read(nextblock - 4);
+    readbyteL = driveD.read(nextblock - 3);
+
+
+    startblock  = word (readbyteH, readbyteL);
+
+    readbyteH = driveD.read(startblock + 1);
+    readbyteL = driveD.read(startblock + 2);
+
+    Cycles  = word (readbyteH, readbyteL);
+
+    byte  NR = driveD.read(startblock + 3);
+
+
+
+    ATPos = startblock + 4;
+
+    Serial.println ("");
+    Serial.print ("FileName=");
+    Serial.println (q);
+    Serial.print ("Cycles=");
+    Serial.println (Cycles);
+    Serial.print ("NR=");
+    Serial.println (NR);
+    Serial.print ("ATPos=");
+    Serial.println (ATPos);
+    Serial.print ("startblock=");
+    Serial.println (startblock);
+    Serial.print ("endblock=");
+    Serial.println (endblock);
+
+    Serial.println("");
+    Serial.println ("----------------------------------------------------------------------------");
+
+    Serial.println ("Alt\t Spd\t Prs\t Tmp\t bx\t by\t bz\t gX\t gY\t gZ");
+    Serial.println (" ");
+
+
+
+    for (int Rec = 0; Rec < Cycles; Rec++)
     {
-      Packet[intern] = driveD.read(EEXPos + intern);
+      for (int intern = 0; intern < PackSize; intern++)
+      {
+        Packet[intern] = driveD.read(ATPos + intern);
+      }
+
+      memcpy(&telemetry, Packet, sizeof(telemetry));
+
+
+
+
+      bx            =  telemetry.bx;
+      by            =  telemetry.by;
+      bz            =  telemetry.bz;
+
+      float DT_bx = bx;
+      float DT_by = by;
+      float DT_bz = bz;
+
+      DT_bx = DT_bx / 10;
+      DT_by = DT_by / 10;
+      DT_bz = DT_bz / 10;
+
+
+      bax           = telemetry.bax;
+      bay           = telemetry.bay;
+      baz           = telemetry.baz;
+
+
+      Pressure      = telemetry.Pressure;
+      Temperature   = telemetry.Temperature;
+      Altitude      = telemetry.Altitude;
+      Speed         = telemetry.Speed;
+      float Speed2  =  Speed;
+
+
+
+      Serial.print (Altitude);
+      Serial.print("\t");
+      Serial.print (Speed2);
+      Serial.print("\t");
+      Serial.print (Pressure);
+      Serial.print("\t");
+      Serial.print (Temperature);
+      Serial.print("\t");
+      Serial.print (DT_bx, 2);
+      Serial.print("\t");
+      Serial.print (DT_by, 2);
+      Serial.print("\t");
+      Serial.print (DT_bz, 2);
+      Serial.print("\t");
+      Serial.print (round(bax));
+      Serial.print("\t");
+      Serial.print (round (bay));
+      Serial.print("\t");
+      Serial.println (round (baz));
+
+     ATPos = ATPos + PackSize; 
     }
+    Serial.println ("----------------------------------------------------------------------------");
 
-    memcpy(&telemetry, Packet, sizeof(telemetry));
-
-
-    bx            =  telemetry.bx;
-    by            =  telemetry.by;
-    bz            =  telemetry.bz;
-
-    float DT_bx = bx;
-    float DT_by = by;
-    float DT_bz = bz;
-
-    DT_bx = DT_bx / 10;
-    DT_by = DT_by / 10;
-    DT_bz = DT_bz / 10;
-
-
-    bax           = telemetry.bax;
-    bay           = telemetry.bay;
-    baz           = telemetry.baz;
-
-
-    Pressure      = telemetry.Pressure;
-    Temperature   = telemetry.Temperature;
-    Altitude      = telemetry.Altitude;
-    Speed         = telemetry.Speed;
-    float Speed2  =  Speed;
-
-
-
-    Serial.print (Altitude);
-    Serial.print("\t");
-    Serial.print (Speed2);
-    Serial.print("\t");
-    Serial.print (Pressure);
-    Serial.print("\t");
-    Serial.print (Temperature);
-    Serial.print("\t");
-    Serial.print (DT_bx, 2);
-    Serial.print("\t");
-    Serial.print (DT_by, 2);
-    Serial.print("\t");
-    Serial.print (DT_bz, 2);
-    Serial.print("\t");
-    Serial.print (round(bax));
-    Serial.print("\t");
-    Serial.print (round (bay));
-    Serial.print("\t");
-    Serial.println (round (baz));
-
-    EEXPos = EEXPos + PackSize;
   }
-  Serial.println ("-----------------------------------------------------");
 
 }
+
+
+void getInfo2()
+{
+  int  EEXPos = 164;
+  
+
+  PackSize = sizeof (telemetry);
+  byte Packet[PackSize];
+
+
+
+
+
+  byte NumRec2 = driveD.read(3);
+
+  unsigned int startblock;
+  unsigned int endblock;
+
+  for (int q = 0; q < NumRec2; q++)
+  {
+
+
+    nextblock = q * 5 + 10;
+
+    byte readbyteH = driveD.read(nextblock - 2);
+    byte readbyteL = driveD.read(nextblock - 1);
+
+    endblock  = word (readbyteH, readbyteL);
+
+    readbyteH = driveD.read(nextblock - 4);
+    readbyteL = driveD.read(nextblock - 3);
+
+
+    startblock  = word (readbyteH, readbyteL);
+
+    readbyteH = driveD.read(startblock + 1);
+    readbyteL = driveD.read(startblock + 2);
+
+    Cycles  = word (readbyteH, readbyteL);
+
+    byte  NR = driveD.read(startblock + 3);
+
+
+
+    ATPos = startblock + 4;
+
+    Serial.println ("");
+    Serial.print ("FileName=");
+    Serial.println (q);
+    Serial.print ("Cycles=");
+    Serial.println (Cycles);
+    Serial.print ("NR=");
+    Serial.println (NR);
+    Serial.print ("ATPos=");
+    Serial.println (ATPos);
+    Serial.print ("startblock=");
+    Serial.println (startblock);
+    Serial.print ("endblock=");
+    Serial.println (endblock);
+
+    Serial.println("");
+    Serial.println ("----------------------------------------------------------------------------");
+
+ int Offset = 945;
+Apogee = 99999
+
+//  EEPROM.get (930, Apogee);
+  //  Serial.print ("Apogee = ");
+  //  Serial.println (Apogee);
+  //
+  //  EEPROM.get (950, Maxspeed);
+  //  Serial.print ("Max Speed = ");
+  //  Serial.println (Maxspeed);
+
+
+
+    
+
+     ATPos = ATPos + PackSize; 
+    }
+    Serial.println ("----------------------------------------------------------------------------");
+
+  }
+
+}
+
