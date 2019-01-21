@@ -46,7 +46,7 @@ void loop()
 
   sendheader(02);
 
-  tone (3, 1000, 50);
+  //tone (3, 1000, 50);
  
   for ( int q = 0; q < Cycles * PackSize; q++)
   {
@@ -58,7 +58,7 @@ void loop()
 
 
   Serial.flush();
-  tone (3, 1000, 50);
+  //tone (3, 1000, 50);
 
 
   for ( int q = 0; q < NumRec * JournalSize; q++)
@@ -68,7 +68,7 @@ void loop()
 
   }
   Serial.flush();
-  tone (3, 1000, 50);
+  //tone (3, 1000, 50);
 
 
 
@@ -81,7 +81,7 @@ void loop()
 
   Serial.flush();
 
-  tone (3, 1000, 50);
+  //tone (3, 1000, 50);
   delay (10000);
 
 
@@ -119,7 +119,7 @@ void sendheader(byte command)
   for (byte q = 0; q < 4; q++)
   {
     Serial.write (header[q]);
-    //Serial.println (header[q], HEX);
   }
   Serial.write (command);
 }
+
