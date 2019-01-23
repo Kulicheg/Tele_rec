@@ -27,6 +27,13 @@ void setup()
   Serial.begin(9600);
   Wire.begin();
 
+
+
+EEPROM.put(945, 567);
+EEPROM.put(950, 330);
+EEPROM.put(947, 13);
+
+
 }
 
 void loop()
